@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RGB Image 3D Plotter</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        #container { display: flex; gap: 40px; }
+        #controls { min-width: 300px; }
+        #plot { width: 800px; height: 600px; }
+    </style>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <h1>RGB Image 3D Plotter</h1>
+    <div id="container">
+        <div id="controls">
+            <h3>Select an image</h3>
+            <select id="imageSelect">
+                <option value="">-- Select an image --</option>
+                <option value="rgb_images/solid_magenta.png">solid_magenta.png</option>
+                <option value="rgb_images/shades_red.png">shades_red.png</option>
+                <option value="rgb_images/solid_red.png">solid_red.png</option>
+                <option value="rgb_images/checkerboard_red_green.png">checkerboard_red_green.png</option>
+                <option value="rgb_images/shades_gray.png">shades_gray.png</option>
+                <option value="rgb_images/solid_white.png">solid_white.png</option>
+                <option value="rgb_images/checkerboard_blue_yellow.png">checkerboard_blue_yellow.png</option>
+                <option value="rgb_images/solid_blue.png">solid_blue.png</option>
+                <option value="rgb_images/solid_cyan.png">solid_cyan.png</option>
+                <option value="rgb_images/gradient_black_to_white.png">gradient_black_to_white.png</option>
+                <option value="rgb_images/shades_green.png">shades_green.png</option>
+                <option value="rgb_images/checkerboard_black_white.png">checkerboard_black_white.png</option>
+                <option value="rgb_images/solid_yellow.png">solid_yellow.png</option>
+                <option value="rgb_images/solid_green.png">solid_green.png</option>
+                <option value="rgb_images/gradient_red_to_blue.png">gradient_red_to_blue.png</option>
+                <option value="rgb_images/solid_black.png">solid_black.png</option>
+                <option value="rgb_images/gradient_red_to_green.png">gradient_red_to_green.png</option>
+                <option value="rgb_images/gradient_green_to_blue.png">gradient_green_to_blue.png</option>
+                <option value="rgb_images/shades_blue.png">shades_blue.png</option>
+            </select>
+            <br><br>
+            <input type="file" id="imageUpload" accept="image/*">
+            <br><br>
+            <button id="plotBtn">Plot Image</button>
+            <button id="cubeBtn">Show RGB Cube</button>
+        </div>
+        <div id="plot"></div>
+    </div>
+    <canvas id="hiddenCanvas" style="display:none;"></canvas>
+    <script>
+    let selectedImageSrc = null;
+    let uploadedImageFile = null;
+
+    document.getElementById('imageSelect').addEventListener('change', e => {
+        selectedImageSrc = e.target.value;
+        uploadedImageFile = null;
+    });
+
+    document.getElementById('imageUpload').addEventListener('change', e => {
+        if (e.target.files.length > 0) {
+            uploadedImageFile = e.target.files[0];
+            selectedImageSrc = null;
+            document.getElementById('imageSelect').value = '';
+        }
+    });
+
+    document.getElementById('plotBtn').addEventListener('click', () => {
+        if (uploadedImageFile) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                plotImage(evt.target.result);
+            };
+            reader.readAsDataURL(uploadedImageFile);
+        } else if (selectedImageSrc) {
+            plotImage(selectedImageSrc);
+        }
+    });
+
+    document.getElementById('cubeBtn').addEventListener('click', plotRGBCube);
+
+    function plotImage(src) {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = function() {
+            const canvas = document.getElementById('hiddenCanvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const imageData = ctx.getImageData(0, 0, img.width, img.height).data;
+            const xs = [], ys = [], zs = [], colors = [];
+            for (let y = 0; y < img.height; y++) {
+                for (let x = 0; x < img.width; x++) {
+                    const idx = (y * img.width + x) * 4;
+                    const r = imageData[idx];
+                    const g = imageData[idx + 1];
+                    const b = imageData[idx + 2];
+                    xs.push(r);
+                    ys.push(g);
+                    zs.push(b);
+                    colors.push(`rgb(${r},${g},${b})`);
+                }
+            }
+            Plotly.newPlot('plot', [{
+                x: xs,
+                y: ys,
+                z: zs,
+                mode: 'markers',
+                type: 'scatter3d',
+                marker: {
+                    size: 2,
+                    color: colors,
+                }
+            }], {
+                margin: { l: 0, r: 0, b: 0, t: 0 },
+                scene: {
+                    xaxis: { title: 'Red' },
+                    yaxis: { title: 'Green' },
+                    zaxis: { title: 'Blue' }
+                }
+            });
+        };
+        img.src = src;
+    }
+
+    // Plot the RGB cube (sampled for performance)
+    function plotRGBCube() {
+        const xs = [], ys = [], zs = [], colors = [];
+        const step = 32; // 0, 32, 64, ..., 224, 255 (8 steps per channel, 512 points)
+        for (let r = 0; r <= 255; r += step) {
+            for (let g = 0; g <= 255; g += step) {
+                for (let b = 0; b <= 255; b += step) {
+                    xs.push(r);
+                    ys.push(g);
+                    zs.push(b);
+                    colors.push(`rgb(${r},${g},${b})`);
+                }
+            }
+        }
+        Plotly.newPlot('plot', [{
+            x: xs,
+            y: ys,
+            z: zs,
+            mode: 'markers',
+            type: 'scatter3d',
+            marker: {
+                size: 3,
+                color: colors,
+            }
+        }], {
+            margin: { l: 0, r: 0, b: 0, t: 0 },
+            scene: {
+                xaxis: { title: 'Red' },
+                yaxis: { title: 'Green' },
+                zaxis: { title: 'Blue' }
+            },
+            title: 'RGB Color Cube'
+        });
+    }
+    </script>
+</body>
+</html>
